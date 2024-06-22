@@ -1,154 +1,167 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import { Camera } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Modal,
+  Alert,
+  KeyboardAvoidingView,
+} from 'react-native';
+import { TextInput, Button } from 'react-native-paper';
 import Header from '../components/Header';
 
-const AddBookScreen = ({ navigation }) => {
-  const [title, setTitle] = useState('');
-  const [genre, setGenre] = useState('');
-  const [year, setYear] = useState('');
-  const [image, setImage] = useState(null);
 
-  const takePhoto = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
-    if (status === 'granted') {
-      let result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.cancelled) {
-        setImage(result.uri);
+const AddBookScreen = ({ navigation, route }) => {
+  const getDetails = (type) => {
+    if (route.params) {
+      switch (type) {
+        case 'title':
+          return route.params.title;
+        case 'genre':
+          return route.params.genre;
+        case 'year':
+          return route.params.year;
+        case 'picture':
+          return route.params.picture;
       }
     }
+    return '';
   };
 
-  const handleSubmit = async () => {
-    if (title && genre && year) {
-      const newBook = {
-        titulo: title,
-        genero: genre,
-        data: year,
-        imagem: image,
-        nome_pessoa: 'Você',
-        numero: '0000000000' // Placeholder for the phone number
-      };
+  const [title, setTitle] = useState(getDetails('title'));
+  const [genre, setGenre] = useState(getDetails('genre'));
+  const [year, setYear] = useState(getDetails('year'));
+  const [enableshift, setenableShift] = useState(false);
 
-      const fileUri = `${FileSystem.documentDirectory}meuslivros.json`;
+  const submitData = () => {
+    fetch('http://192.168.0.195:3000/send-data', {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        genre,
+        year,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        Alert.alert(`${data.title} foi cadastrado com sucesso!`);
+        navigation.navigate('Home');
+      })
+      .catch((err) => {
+        Alert.alert('alguma coisas deu errado' + err);
+      });
+  };
 
-      try {
-        const fileInfo = await FileSystem.getInfoAsync(fileUri);
-
-        let livros = [];
-        if (fileInfo.exists) {
-          const fileContent = await FileSystem.readAsStringAsync(fileUri);
-          livros = JSON.parse(fileContent);
-        }
-
-        livros.push(newBook);
-        await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(livros));
-
-        Alert.alert('Sucesso', 'Livro adicionado com sucesso!');
-        setTitle('');
-        setGenre('');
-        setYear('');
-        setImage(null);
-      } catch (error) {
-        console.error(error);
-        Alert.alert('Erro', 'Não foi possível salvar o livro.');
-      }
-    } else {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
-    }
+  const updateDetails = () => {
+    fetch('192.168.0.195:3000/update', {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: route.params._id,
+        title,
+        genre,
+        year,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        Alert.alert(`${data.title} foi editado com sucesso!`);
+        navigation.navigate('Home');
+      })
+      .catch((err) => {
+        Alert.alert('alguma coisa deu errado');
+      });
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior="position"
+      style={styles.root}
+      enabled={enableshift}
+    >
       <Header navigation={navigation} />
-      <View style={styles.form}>
-      <TextInput
-        style={styles.input}
-        placeholder="Nome do Livro"
-        value={title}
-        onChangeText={setTitle}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Gênero"
-        value={genre}
-        onChangeText={setGenre}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Ano de Publicação"
-        value={year}
-        onChangeText={setYear}
-      />
-      <TouchableOpacity onPress={takePhoto} style={styles.button}>
-        <Text style={styles.buttonText}>Tirar Foto</Text>
-      </TouchableOpacity>
-      {image && <Image source={{ uri: image }} style={styles.image} />}
-      <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
-        <Text style={styles.buttonText}>Enviar</Text>
-      </TouchableOpacity>
+      <View style={styles.container}>
+        <TextInput
+          label="Título do livro"
+          style={styles.inputStyle}
+          value={title}
+          onFocus={() => setenableShift(false)}
+          theme={theme}
+          mode="outlined"
+          onChangeText={(text) => setTitle(text)}
+        />
+        <TextInput
+          label="Gênero"
+          style={styles.inputStyle}
+          value={genre}
+          theme={theme}
+          onFocus={() => setenableShift(false)}
+          mode="outlined"
+          onChangeText={(text) => setGenre(text)}
+        />
+        <TextInput
+          label="Ano de publicação"
+          style={styles.inputStyle}
+          value={year}
+          theme={theme}
+          onFocus={() => setenableShift(false)}
+          keyboardType="number-pad"
+          mode="outlined"
+          onChangeText={(text) => setYear(text)}
+        />
+        {route.params ? (
+          <Button
+            style={styles.inputStyle}
+            icon="content-save"
+            mode="contained"
+            theme={theme}
+            onPress={() => updateDetails()}
+          >
+            Atualizar Detalhes
+          </Button>
+        ) : (
+          <Button
+            style={styles.button}
+            icon="content-save"
+            mode="contained"
+            theme={theme}
+            onPress={() => submitData()}
+          >
+            Salvar
+          </Button>
+        )}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
+const theme = {
+  colors: {
+    primary: '#c56648',
+  },
+};
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: '#c0a48c',
     padding: 20,
   },
-  form: {
+  container: {
     paddingTop: 20,
   },
-  logoText: {
-    fontSize: 20,
-    marginLeft: 10,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 20,
-    backgroundColor: '#fff',
+  inputStyle: {
+    margin: 5,
+    backgroundColor: '#c0a48c',
   },
   button: {
-    padding: 10,
-    marginBottom: 20,
-    backgroundColor: '#c56648',
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    textAlign: 'center',
-  },
-  submitButton: {
     marginTop: 20,
-    padding: 10,
-    backgroundColor: '#25d366',
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  image: {
-    width: 200,
-    height: 200,
-    marginTop: 20,
-    alignSelf: 'center',
-  },
+  }
+
 });
 
 export default AddBookScreen;
