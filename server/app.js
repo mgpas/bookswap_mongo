@@ -52,13 +52,20 @@ app.post('/send-data', (req, res) => {
 });
 
 app.post('/delete', (req, res) => {
-  Book.findByIdAndRemove(req.body.id)
+  const bookId = req.body.id; // Verifique se o nome do campo corresponde ao enviado pelo frontend
+  console.log("Deleting book with ID:", bookId);
+  
+  Book.findByIdAndRemove(bookId)
     .then((data) => {
-      console.log(data);
+      if (!data) {
+        return res.status(404).send("Livro não encontrado");
+      }
+      console.log("Livro deletado:", data);
       res.send(data);
     })
     .catch((err) => {
-      console.log(err);
+      console.error("Erro ao deletar livro:", err);
+      res.status(500).send("Erro ao deletar livro");
     });
 });
 

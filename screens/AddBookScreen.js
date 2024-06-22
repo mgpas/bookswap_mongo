@@ -34,10 +34,12 @@ const AddBookScreen = ({ navigation, route }) => {
   const [genre, setGenre] = useState(getDetails('genre'));
   const [year, setYear] = useState(getDetails('year'));
   const [enableshift, setenableShift] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editBookId, setEditBookId] = useState(null);
 
-// Create
+
   const submitData = () => {
-    fetch('http://192.168.0.195:3000/send-data', {
+    fetch('http://192.168.100.9:3000/send-data', {
       method: 'post',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +66,7 @@ const AddBookScreen = ({ navigation, route }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('http://192.168.0.195:3000/');
+        const response = await fetch('http://192.168.100.9:3000/');
         const data = await response.json();
         setBooks(data);
       } catch (error) {
@@ -73,51 +75,85 @@ const AddBookScreen = ({ navigation, route }) => {
     };
     fetchData();
   }, [books]);
+  
+// Loading ...
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const response = await fetch('http://192.168.100.9:3000/');
+      const data = await response.json();
+      setBooks(data);
+      setLoading(false); // <- Atualiza o estado de loading
+    } catch (error) {
+      console.error(error);
+      setLoading(false); // <- Atualiza o estado de loading em caso de erro
+    }
+  };
+  fetchData();
+}, []);
 
 // Delete
-    const deleteBook = () => {
-        fetch("http://172.26.39.181:3000/delete", {
-            method: "post",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                id: route.params._id
-            })
-        })
-            .then(res => res.json())
-            .then(deletedBook => {
-                Alert.alert(`${deletedBook.name} foi deletado!`)
-                props.navigation.navigate("Home")
-            })
-            .catch(err => {
-                Alert.alert("alguma coisa deu errado")
-            })
-    }
-
-  const updateDetails = () => {
-    fetch('192.168.0.195:3000/update', {
-      method: 'post',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id: route.params._id,
-        title,
-        genre,
-        year,
-      }),
+const deleteBook = (id) => {
+  fetch('http://192.168.100.9:3000/delete', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      id: id
     })
-      .then((res) => res.json())
-      .then((data) => {
-        Alert.alert(`${data.title} foi editado com sucesso!`);
-        navigation.navigate('Home');
-      })
-      .catch((err) => {
-        Alert.alert('alguma coisa deu errado');
-      });
-  };
+  })
+  .then(res => res.json())
+  .then(deletedBook => {
+    Alert.alert(`${deletedBook.title} foi deletado!`);
+    setBooks(books.filter(book => book._id !== id)); // <- Atualiza a lista de livros
+  })
+  .catch(err => {
+    Alert.alert('Algo deu errado ao deletar o livro.');
+    console.error(err);
+  });
+};
 
+// Update
+const updateDetails = () => {
+  fetch('http://192.168.100.9:3000/update', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      id: editBookId,
+      title,
+      genre,
+      year,
+    }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      Alert.alert(`${data.title} foi editado com sucesso!`);
+      setBooks(books.map((book) => (book._id === data._id ? data : book)));
+      setEditMode(false);  // Exit edit mode
+      setEditBookId(null); // Clear edit book ID
+      setTitle('');        // Clear title input
+      setGenre('');        // Clear genre input
+      setYear('');         // Clear year input
+    })
+    .catch((err) => {
+      Alert.alert('alguma coisa deu errado');
+    });
+};
+
+const startEditBook = (book) => {
+  setTitle(book.title);
+  setGenre(book.genre);
+  setYear(book.year);
+  setEditMode(true);
+  setEditBookId(book._id);
+};
+
+// Tela
   return (
     <ScrollView contentContainerStyle={styles.scrollViewContent}>
       <View style={styles.container}>
@@ -150,13 +186,13 @@ const AddBookScreen = ({ navigation, route }) => {
           mode="outlined"
           onChangeText={(text) => setYear(text)}
         />
-        {route.params ? (
+        {editMode ? (
           <Button
-            style={styles.inputStyle}
+            style={styles.button}
             icon="content-save"
             mode="contained"
             theme={theme}
-            onPress={() => updateDetails()}
+            onPress={updateDetails}
           >
             Atualizar Detalhes
           </Button>
@@ -171,9 +207,12 @@ const AddBookScreen = ({ navigation, route }) => {
             Salvar
           </Button>
         )}
-        {books.length > 0 ? (
-  <View>
-    <Text style={styles.subtitle}>Meus Livros</Text>
+        {loading ? (
+  <Text>Carregando livros...</Text>
+) : (
+  books.length > 0 ? (
+    <View>
+      <Text style={styles.subtitle}>Meus Livros</Text>
     {books.map((book) => (
       <Card key={book._id} style={styles.mycard}>
         <View style={styles.cardContent}>
@@ -186,18 +225,19 @@ const AddBookScreen = ({ navigation, route }) => {
           <Text style={styles.mytext}>{book.year}</Text>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-around", padding: 10 }}>
-                <Button
-                    icon="account-edit"
-                    mode="contained"
-                    theme={theme}
-                    onPress={() => updateDetails()}>
-                    Editar
-                </Button>
+        <Button
+                      icon="account-edit"
+                      mode="contained"
+                      theme={theme}
+                      onPress={() => startEditBook(book)}
+                    >
+                      Editar
+                    </Button>
                 <Button
                     icon="delete"
                     mode="contained"
                     theme={theme}
-                    onPress={() => deleteBook()}>
+                    onPress={() => deleteBook(book._id)}>
                     Deletar
                 </Button>
             </View>
@@ -205,7 +245,8 @@ const AddBookScreen = ({ navigation, route }) => {
     ))}
   </View>
 ) : (
-  <Text>Carregando livros...</Text>
+  <Text style={styles.subtitle}>Você ainda não adicionou livros</Text>
+)
 )}
       </View>
     </ScrollView>
