@@ -32,7 +32,7 @@ Esse projeto foi desenvolvido com as seguintes tecnologias:
 
 ## 💻 Projeto
 
-O BookSwap é um aplicativo de troca de livros, pensando como uma solução para promover a cultura de leitura e tornar o acesso a uma variedade de títulos mais acessível para os usuários.
+O BookSwap é um aplicativo de troca de livros, pensando como uma solução para promover a cultura de leitura e tornar o acesso a uma variedade de títulos mais acessível para os usuários. Veja o funcionamento do app em <b>preview.mp4</b>!
 <br><i>O BookSwap é um aplicativo desenvolvido como um projeto para o terceiro período do curso de Análise e Desenvolvimento de Sistemas da Faculdade Senac Pernambuco.</i> 
 
 ## 📚 Documentos
