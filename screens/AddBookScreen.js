@@ -5,10 +5,11 @@ import {
   View,
   Modal,
   Alert,
-  KeyboardAvoidingView,
   ScrollView,
+  Image,
 } from 'react-native';
 import { TextInput, Button, Card } from 'react-native-paper';
+import * as ImagePicker from 'expo-image-picker';
 import Header from '../components/Header';
 
 
@@ -24,6 +25,8 @@ const AddBookScreen = ({ navigation, route }) => {
           return route.params.genre;
         case 'year':
           return route.params.year;
+        case 'picture':
+          return route.params.picture;
       }
     }
     return '';
@@ -33,13 +36,15 @@ const AddBookScreen = ({ navigation, route }) => {
   const [title, setTitle] = useState(getDetails('title'));
   const [genre, setGenre] = useState(getDetails('genre'));
   const [year, setYear] = useState(getDetails('year'));
+  const [picture, setPicture] = useState(getDetails('picture'));
   const [enableshift, setenableShift] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editBookId, setEditBookId] = useState(null);
+  const [modal, setModal] = useState(false);
 
-
+// Create
   const submitData = () => {
-    fetch('http://192.168.100.9:3000/send-data', {
+    fetch('http://192.168.0.195:3000/send-data', {
       method: 'post',
       headers: {
         'Content-Type': 'application/json',
@@ -48,12 +53,17 @@ const AddBookScreen = ({ navigation, route }) => {
         title,
         genre,
         year,
+        picture,
       }),
     })
       .then((res) => res.json())
       .then((data) => {
           setBooks([...books, data]);
           Alert.alert(`${data.title} foi cadastrado com sucesso!`);
+          setTitle('');        // Clear title input
+          setGenre('');        // Clear genre input
+          setYear('');         // Clear year input
+          setPicture('');      // Clear picture
       })
       .catch((err) => {
         Alert.alert('alguma coisas deu errado' + err);
@@ -61,28 +71,15 @@ const AddBookScreen = ({ navigation, route }) => {
   };
 
 // Read
-  const [books, setBooks] = useState([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('http://192.168.100.9:3000/');
-        const data = await response.json();
-        setBooks(data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchData();
-  }, [books]);
+const [books, setBooks] = useState([]);
   
-// Loading ...
+  // Loading ...
 const [loading, setLoading] = useState(true);
 
 useEffect(() => {
   const fetchData = async () => {
     try {
-      const response = await fetch('http://192.168.100.9:3000/');
+      const response = await fetch('http://192.168.0.195:3000/');
       const data = await response.json();
       setBooks(data);
       setLoading(false); // <- Atualiza o estado de loading
@@ -96,7 +93,7 @@ useEffect(() => {
 
 // Delete
 const deleteBook = (id) => {
-  fetch('http://192.168.100.9:3000/delete', {
+  fetch('http://192.168.0.195:3000/delete', {
     method: 'post',
     headers: {
       'Content-Type': 'application/json'
@@ -118,7 +115,7 @@ const deleteBook = (id) => {
 
 // Update
 const updateDetails = () => {
-  fetch('http://192.168.100.9:3000/update', {
+  fetch('http://192.168.0.195:3000/update', {
     method: 'post',
     headers: {
       'Content-Type': 'application/json',
@@ -128,6 +125,7 @@ const updateDetails = () => {
       title,
       genre,
       year,
+      picture,
     }),
   })
     .then((res) => res.json())
@@ -139,6 +137,7 @@ const updateDetails = () => {
       setTitle('');        // Clear title input
       setGenre('');        // Clear genre input
       setYear('');         // Clear year input
+      setPicture('');      // Clear picture
     })
     .catch((err) => {
       Alert.alert('alguma coisa deu errado');
@@ -149,8 +148,77 @@ const startEditBook = (book) => {
   setTitle(book.title);
   setGenre(book.genre);
   setYear(book.year);
+  setPicture(book.picture);
   setEditMode(true);
   setEditBookId(book._id);
+};
+
+// Picture feature
+const pickFromGallery = async () => {
+  let result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [3, 4],
+    quality: 0.5,
+  });
+  if (!result.canceled) {
+    const image = result.assets[0];
+    let newfile = {
+      uri: image.uri,
+      type: `image/${image.uri.split('.').pop()}`,
+      name: `image.${image.uri.split('.').pop()}`,
+    };
+    handleUpload(newfile);
+  }
+};
+
+const pickFromCamera = async () => {
+  let result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [3, 4],
+    quality: 0.5,
+  });
+  if (!result.canceled) {
+    const image = result.assets[0];
+    let newfile = {
+      uri: image.uri,
+      type: `image/${image.uri.split('.').pop()}`,
+      name: `image.${image.uri.split('.').pop()}`,
+    };
+    handleUpload(newfile);
+  }
+};
+
+const handleUpload = (image) => {
+  const data = new FormData();
+  data.append('file', {
+    uri: image.uri,
+    type: image.type,
+    name: image.name,
+  });
+  data.append('upload_preset', 'bookswap');
+  data.append('cloud_name', 'ddpc2zsdf');
+
+  console.log('FormData:', data); // Adicione este log para verificar o FormData
+
+  fetch('https://api.cloudinary.com/v1_1/ddpc2zsdf/image/upload', {
+    method: 'POST',
+    body: data,
+  })
+    .then((res) => {
+      console.log('Response:', res); // Adicione este log para verificar a resposta
+      return res.json();
+    })
+    .then((data) => {
+      console.log('Upload successful:', data); // Adicione este log para verificar os dados da resposta
+      setPicture(data.url);
+      setModal(false);
+    })
+    .catch((err) => {
+      console.error('Upload error:', err); // Adicione este log para verificar erros
+      Alert.alert('Erro durante o upload', err.message);
+    });
 };
 
 // Tela
@@ -186,6 +254,15 @@ const startEditBook = (book) => {
           mode="outlined"
           onChangeText={(text) => setYear(text)}
         />
+        <Button
+          style={styles.button}
+          icon={picture === '' ? 'upload' : 'check'}
+          mode="contained"
+          theme={theme}
+          onPress={() => setModal(true)}
+        >
+          Upload de Imagem
+        </Button>
         {editMode ? (
           <Button
             style={styles.button}
@@ -207,6 +284,40 @@ const startEditBook = (book) => {
             Salvar
           </Button>
         )}
+
+<Modal
+          animationType="slide"
+          transparent={true}
+          visible={modal}
+          onRequestClose={() => {
+            setModal(false);
+          }}
+        >
+          <View style={styles.modalView}>
+            <View style={styles.modalButtonView}>
+              <Button
+                icon="camera"
+                theme={theme}
+                mode="contained"
+                onPress={() => pickFromCamera()}
+              >
+                Câmera
+              </Button>
+              <Button
+                icon="image-area"
+                mode="contained"
+                theme={theme}
+                onPress={() => pickFromGallery()}
+              >
+                Galeria
+              </Button>
+            </View>
+            <Button style={styles.cancelButton} theme={theme} onPress={() => setModal(false)}>
+              Cancelar
+            </Button>
+          </View>
+        </Modal>
+
         {loading ? (
   <Text>Carregando livros...</Text>
 ) : (
@@ -216,13 +327,15 @@ const startEditBook = (book) => {
     {books.map((book) => (
       <Card key={book._id} style={styles.mycard}>
         <View style={styles.cardContent}>
-          <Text style={styles.mytext}>{book.title}</Text>
+        <Image
+                      source={{ uri: book.picture }}
+                      style={styles.bookImage}
+                    />
+                    <View style={styles.cardText}>
+                      <Text style={styles.textTitle}>{book.title}</Text>
+                      <Text style={styles.text}>{book.genre}</Text>
+                      <Text style={styles.text}>{book.year}</Text>
         </View>
-        <View style={styles.cardContent}>
-          <Text style={styles.mytext}>{book.genre}</Text>
-        </View>
-        <View style={styles.cardContent}>
-          <Text style={styles.mytext}>{book.year}</Text>
         </View>
         <View style={{ flexDirection: "row", justifyContent: "space-around", padding: 10 }}>
         <Button
@@ -245,7 +358,7 @@ const startEditBook = (book) => {
     ))}
   </View>
 ) : (
-  <Text style={styles.subtitle}>Você ainda não adicionou livros</Text>
+  <Text style={styles.subtitle}>Você ainda não adicionou livros.</Text>
 )
 )}
       </View>
@@ -279,18 +392,50 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginBottom: 20,
   },
+  modalView: {
+    position: 'absolute',
+    bottom: 1,
+    width: '100%',
+    backgroundColor: 'white',
+    borderTopStartRadius: 30,
+    borderTopEndRadius: 30,
+  },
+  modalButtonView: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 10,
+    marginTop: 5,
+  },
+  cancelButton: {
+    paddingBottom: 5,
+  },
   mycard: {
-    margin: 3
+    margin: 3,
+    padding: 3
 },
 cardContent: {
     flexDirection: "row",
     padding: 8
 },
-mytext: {
-    fontSize: 18,
-    marginTop: 3,
-    marginLeft: 5
-}
+bookImage: {
+  width: 90,
+  height: 120,
+  padding: 5,
+},
+cardText: {
+  flex: 1,
+},
+textTitle: {
+  fontSize: 18,
+  marginBottom: 8,
+  marginLeft: 10,
+  fontWeight: 'bold'
+},
+text: {
+  fontSize: 16,
+  marginBottom: 8,
+  marginLeft: 10,
+},
 });
 
 export default AddBookScreen;

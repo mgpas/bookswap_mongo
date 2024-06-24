@@ -39,6 +39,7 @@ app.post('/send-data', (req, res) => {
     title: req.body.title,
     genre: req.body.genre,
     year: req.body.year,
+    picture: req.body.picture,
   });
   book
     .save()
@@ -74,6 +75,7 @@ app.post('/update', (req, res) => {
     title: req.body.title,
     genre: req.body.genre,
     year: req.body.year,
+    picture: req.body.picture,
   })
     .then((data) => {
       console.log(data);
